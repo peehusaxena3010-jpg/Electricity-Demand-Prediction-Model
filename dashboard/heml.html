@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NTPC — Chhattisgarh Demand Forecast</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'DM Sans', 'Segoe UI', sans-serif; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
+  .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
+  .dash { background: #f0f2f7; min-height: 100vh; padding: 0 0 24px; }
+  .topbar { background: #fff; border-bottom: 1px solid #e2e6ef; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .ntpc-logo { background: #c0392b; color: #fff; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px; letter-spacing: 0.5px; }
+  .topbar-title { font-size: 14px; font-weight: 500; color: #222; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #555; }
+  .live-badge { background: #e74c3c; color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 3px; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+  .live-dot { width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: blink 1.2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .controls-bar { background: #fff; border-bottom: 1px solid #e2e6ef; padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .controls-bar select, .controls-bar input[type=date] { border: 1px solid #d0d5e0; border-radius: 6px; padding: 6px 12px; font-size: 13px; color: #333; background: #fff; height: 36px; }
+  .gen-btn { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 0 18px; height: 36px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .gen-btn:hover { background: #1d4ed8; }
+  .gen-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+  .model-select-wrap { display: flex; align-items: center; gap: 6px; }
+  .model-select-label { font-size: 12px; color: #666; font-weight: 500; white-space: nowrap; }
+  .model-select { border: 1.5px solid #2563eb !important; border-radius: 6px; padding: 6px 12px; font-size: 13px; color: #2563eb; background: #eff6ff; height: 36px; font-weight: 500; cursor: pointer; min-width: 160px; }
+  .model-badge { display: inline-flex; align-items: center; gap: 4px; background: #dbeafe; color: #1d4ed8; border-radius: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; }
+  .api-status { display: flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+  .api-ok { background: #e8f5e9; color: #2e7d32; }
+  .api-err { background: #ffebee; color: #c62828; }
+  .api-loading { background: #fff8e1; color: #f57f17; }
+  .api-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .api-ok .api-dot { background: #2e7d32; animation: blink 1.5s infinite; }
+  .api-err .api-dot { background: #c62828; }
+  .api-loading .api-dot { background: #f57f17; animation: blink 0.6s infinite; }
+  .main { padding: 16px 20px; }
+  .metric-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
+  .mcard { background: #fff; border-radius: 10px; border: 1px solid #e8ecf4; padding: 12px 14px 10px; position: relative; overflow: hidden; }
+  .mcard.live-api-card { border-color: #93c5fd; box-shadow: 0 0 0 1px #bfdbfe; }
+  .mcard-label { font-size: 11px; color: #888; font-weight: 400; margin-bottom: 4px; line-height: 1.3; }
+  .mcard-sub { font-size: 11px; color: #aaa; margin-bottom: 2px; }
+  .mcard-val { font-size: 22px; font-weight: 600; color: #1a1a2e; line-height: 1.1; }
+  .mcard-unit { font-size: 13px; font-weight: 400; color: #666; margin-left: 2px; }
+  .mcard-badge { position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+  .badge-orange { background: #fff3e0; color: #e65100; }
+  .badge-blue { background: #e3f2fd; color: #1565c0; }
+  .badge-green { background: #e8f5e9; color: #2e7d32; }
+  .badge-red { background: #ffebee; color: #c62828; }
+  .badge-live { background: #dbeafe; color: #1d4ed8; }
+  .mcard-temp { font-size: 11px; color: #e67e22; font-weight: 500; }
+  .mcard-today-label { font-size: 10px; background: #e3f2fd; color: #1565c0; padding: 2px 7px; border-radius: 3px; display: inline-block; margin-bottom: 4px; }
+  .live-sub-row { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .live-sub-item { font-size: 10px; background: #f7f9fc; border-radius: 3px; padding: 1px 6px; color: #666; }
+  .row2 { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+  .chart-card { background: #fff; border-radius: 10px; border: 1px solid #e8ecf4; padding: 16px; }
+  .chart-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
+  .chart-card-title { font-size: 13px; font-weight: 500; color: #333; }
+  .chart-legend { display: flex; gap: 16px; align-items: center; font-size: 12px; color: #666; }
+  .leg-dot { width: 10px; height: 3px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+  .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .weather-card { background: #fff; border-radius: 10px; border: 1px solid #e8ecf4; padding: 14px; }
+  .weather-title { font-size: 12px; font-weight: 500; color: #333; margin-bottom: 10px; }
+  .weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .w-item { background: #f7f9fc; border-radius: 7px; padding: 8px 10px; }
+  .w-item-label { font-size: 10px; color: #999; margin-bottom: 2px; }
+  .w-item-val { font-size: 16px; font-weight: 600; color: #222; }
+  .temp-chart-card { background: #fff; border-radius: 10px; border: 1px solid #e8ecf4; padding: 14px; }
+  .temp-chart-title { font-size: 12px; font-weight: 500; color: #333; margin-bottom: 8px; }
+  .temp-chart-wrap { position: relative; width: 100%; height: 100px; }
+  .table-card { background: #fff; border-radius: 10px; border: 1px solid #e8ecf4; padding: 14px; margin-top: 14px; }
+  .table-title { font-size: 12px; font-weight: 500; color: #333; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .slot-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  .slot-table th { text-align: left; color: #999; font-weight: 400; padding: 4px 8px; border-bottom: 1px solid #eee; }
+  .slot-table td { padding: 5px 8px; border-bottom: 1px solid #f3f4f8; color: #333; }
+  .slot-table tr:last-child td { border-bottom: none; }
+  .mape-chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .mape-good { background: #e8f5e9; color: #2e7d32; }
+  .mape-mid  { background: #fff8e1; color: #f57f17; }
+  .mape-bad  { background: #ffebee; color: #c62828; }
+  .model-pill { display: inline-flex; align-items: center; gap: 4px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 20px; font-size: 11px; font-weight: 600; padding: 2px 10px; }
+  .refresh-spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .api-err-banner { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #856404; margin-bottom: 8px; display: none; }
+</style>
+</head>
+<body>
+
+<h2 class="sr-only">NTPC CG Load Forecast Dashboard</h2>
+
+<div class="dash">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="ntpc-logo">NTPC</span>
+      <span class="topbar-title">Chhattisgarh — Demand Forecast</span>
+    </div>
+    <div class="topbar-right">
+      <span id="clock" style="font-size:12px;color:#666;"></span>
+      <span class="live-badge"><span class="live-dot"></span> Live Data</span>
+    </div>
+  </div>
+
+  <div class="controls-bar">
+    <!-- State is fixed to CG (only CG models are trained) -->
+    <select id="stateSelect" style="min-width:140px;" onchange="onStateChange()">
+      <option value="CG" selected>Chhattisgarh</option>
+    </select>
+    <input type="date" id="datePicker" />
+
+    <div class="model-select-wrap">
+      <span class="model-select-label">⚡ Prediction Model:</span>
+      <select id="modelSelect" class="model-select" onchange="onModelChange()">
+        <option value="5min">5-Minute Interval</option>
+        <option value="1hour">1-Hour Interval</option>
+        <option value="3hour">3-Hour Interval</option>
+        <option value="24hour">24-Hour (Daily)</option>
+      </select>
+    </div>
+
+    <button class="gen-btn" onclick="generateForecast()">
+      <span id="btnIcon">↻</span>
+      <span id="btnText">Generate Forecast</span>
+    </button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div id="apiStatus" class="api-status api-loading"><span class="api-dot"></span>Fetching live data…</div>
+      <span style="font-size:12px;color:#999;">Last updated: <span id="lastUpdated">--</span></span>
+    </div>
+  </div>
+
+  <!-- Live data info bar -->
+  <div id="liveApiBar" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:7px 20px;font-size:12px;color:#333;display:flex;align-items:center;gap:6px;">
+    <span style="color:#93c5fd;">Connecting to NVVN backend…</span>
+  </div>
+
+  <div class="main">
+    <div id="apiErrBanner" class="api-err-banner">
+      ⚠️ Backend API unavailable. Forecast is showing simulated data. Check that <code>python manage.py runserver</code> is running.
+    </div>
+
+    <div class="metric-row">
+      <!-- Live Demand card — fed by /api/chhattisgarh/latest -->
+      <div class="mcard live-api-card">
+        <div class="mcard-badge badge-live" id="liveBadge">NVVN BACKEND</div>
+        <div class="mcard-sub" id="liveTime">--:--</div>
+        <div class="mcard-label">Live Demand</div>
+        <div class="mcard-val" id="liveDemand">--<span class="mcard-unit">MW</span></div>
+        <div class="live-sub-row">
+          <span class="live-sub-item">ISGS: <span id="liveISGS">--</span> MW</span>
+          <span class="live-sub-item">Import: <span id="liveImport">--</span> MW</span>
+        </div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-sub" id="forecastTime">--:-- - --:--</div>
+        <div class="mcard-temp" id="forecastTemp">--°C</div>
+        <div class="mcard-label">Current Forecast Demand</div>
+        <div class="mcard-val" id="forecastDemand">--<span class="mcard-unit">MW</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-badge badge-red" id="peakTime">--:--</div>
+        <div class="mcard-temp" id="peakTemp">--°C</div>
+        <div class="mcard-label">Forecast Peak Demand</div>
+        <div class="mcard-val" id="peakDemand">--<span class="mcard-unit">MW</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-today-label">Today</div>
+        <div class="mcard-label" style="font-weight:500;color:#1565c0;">Avg MAPE</div>
+        <div class="mcard-label" style="font-size:10px;color:#999;">(Mean Absolute Percentage Error)</div>
+        <div class="mcard-val" id="avgMape" style="color:#27ae60;">--<span class="mcard-unit" style="font-size:14px;">%</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-badge badge-orange" id="currentPeriod">--:-- - --:--</div>
+        <div class="mcard-label">Current MAPE</div>
+        <div class="mcard-label" style="font-size:10px;color:#999;">(Mean Absolute Percentage Error)</div>
+        <div class="mcard-val" id="currentMape" style="color:#e67e22;">--<span class="mcard-unit" style="font-size:14px;">%</span></div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="chart-card-title">Actual vs Forecast Demand</span>
+            <span class="model-pill" id="chartModelPill">⚡ 5-Min Model (288 slots)</span>
+          </div>
+          <div class="chart-legend">
+            <span><span class="leg-dot" style="background:#17a589;"></span>Actual Demand (MW)</span>
+            <span><span class="leg-dot" style="background:#2980b9;height:2px;"></span>Forecast Demand (MW)</span>
+            <span><span class="leg-dot" style="background:#e74c3c;"></span>Live (API)</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="mainChart" role="img" aria-label="Actual vs forecast demand chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-row">
+      <div class="weather-card">
+        <div class="weather-title">🌤 Weather — Raipur (21.28°N 81.87°E)</div>
+        <div class="weather-grid">
+          <div class="w-item"><div class="w-item-label">Temperature (Latest)</div><div class="w-item-val" id="wTemp">--°C</div></div>
+          <div class="w-item"><div class="w-item-label">Humidity</div><div class="w-item-val" id="wHumidity">--%</div></div>
+          <div class="w-item"><div class="w-item-label">Rainfall</div><div class="w-item-val" id="wRain">-- mm</div></div>
+          <div class="w-item"><div class="w-item-label">Wind Speed</div><div class="w-item-val" id="wWind">-- m/s</div></div>
+        </div>
+      </div>
+      <div class="temp-chart-card">
+        <div class="temp-chart-title">🌡 Temperature Trend (°C)</div>
+        <div class="temp-chart-wrap">
+          <canvas id="tempChart" role="img" aria-label="Temperature variation chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-title">
+        📋 <span id="tableTitle">Today's Forecast Demand (5-minute, 288 blocks)</span>
+        <span class="model-pill" id="tableModelPill" style="margin-left:4px;">⚡ 5-Min Model</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="slot-table">
+          <thead>
+            <tr><th>Slot</th><th>Time</th><th>Forecast (MW)</th><th>Actual (MW)</th><th>Error (%)</th><th>Status</th></tr>
+          </thead>
+          <tbody id="slotTable">
+            <tr><td colspan="6" style="color:#bbb;padding:16px 8px;text-align:center;">Click "Generate Forecast" to load real model predictions</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const API_URL = 'http://127.0.0.1:8000';
+let mainChartInst = null, tempChartInst = null;
+let liveDemandMW = null, liveISGS = null, liveImport = null;
+let liveApiOk = false;
+let currentModel = '5min';
+
+// ─────────────── Clock ───────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) + '  ' +
+    now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+function setToday() {
+  document.getElementById('datePicker').value = new Date().toISOString().slice(0, 10);
+}
+setToday();
+
+// ─────────────── Helpers ───────────────
+function slotToTime(s, model) {
+  if (model === '24hour') return 'Day ' + (s + 1);
+  let mins;
+  if (model === '5min')       mins = s * 5;
+  else if (model === '1hour') mins = s * 60;
+  else if (model === '3hour') mins = s * 180;
+  else                        mins = s * 5;
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0');
+}
+
+function totalSlots(model) {
+  if (model === '5min')   return 288;
+  if (model === '1hour')  return 24;
+  if (model === '3hour')  return 8;
+  return 30;   // 24hour → 30-day forecast
+}
+
+function modelLabel(model) {
+  if (model === '5min')   return '⚡ 5-Min Model (288 slots)';
+  if (model === '1hour')  return '🕐 1-Hour Model (24 slots)';
+  if (model === '3hour')  return '🕒 3-Hour Model (8 slots)';
+  return '📅 24-Hour Model (30-day)';
+}
+
+function tableLabel(model) {
+  if (model === '5min')   return "Today's Forecast Demand (5-minute, 288 blocks)";
+  if (model === '1hour')  return "Today's Forecast Demand (1-hour, 24 blocks)";
+  if (model === '3hour')  return "Today's Forecast Demand (3-hour, 8 blocks)";
+  return "30-Day Demand Forecast (daily)";
+}
+
+function tablePillLabel(model) {
+  if (model === '5min')   return '⚡ 5-Min Model';
+  if (model === '1hour')  return '🕐 1-Hour Model';
+  if (model === '3hour')  return '🕒 3-Hour Model';
+  return '📅 Daily Model';
+}
+
+function currentSlotForModel(model) {
+  const now = new Date();
+  const totalMins = now.getHours() * 60 + now.getMinutes();
+  if (model === '5min')   return Math.min(Math.floor(totalMins / 5), 287);
+  if (model === '1hour')  return Math.min(Math.floor(totalMins / 60), 23);
+  if (model === '3hour')  return Math.min(Math.floor(totalMins / 180), 7);
+  return 0;
+}
+
+// ─────────────── API Status ───────────────
+function setApiStatus(state, msg) {
+  const el = document.getElementById('apiStatus');
+  el.className = 'api-status api-' + state;
+  el.innerHTML = '<span class="api-dot"></span>' + msg;
+}
+
+// ─────────────── Live Demand — /api/chhattisgarh/latest ───────────────
+async function fetchLiveDemand() {
+  setApiStatus('loading', 'Fetching live data…');
+  try {
+    const resp = await fetch(API_URL + '/api/chhattisgarh/latest');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+
+    // Latest demand point
+    const pts = json.demand_points || [];
+    const latest = pts.length > 0 ? pts[pts.length - 1] : null;
+    if (latest) {
+      liveDemandMW = latest.demand_mw;
+      liveISGS     = latest.isgs_mw;
+      liveImport   = latest.import_mw;
+    }
+
+    // Latest weather
+    const wpts = json.weather_points || [];
+    const wLatest = wpts.length > 0 ? wpts[wpts.length - 1] : null;
+    if (wLatest) {
+      document.getElementById('wTemp').textContent     = wLatest.temperature_c !== null ? wLatest.temperature_c.toFixed(1) + '°C' : '--°C';
+      document.getElementById('wHumidity').textContent = wLatest.humidity_pct  !== null ? wLatest.humidity_pct.toFixed(0)  + '%'  : '--%';
+      document.getElementById('wRain').textContent     = wLatest.rain_mm       !== null ? wLatest.rain_mm.toFixed(1)       + ' mm' : '-- mm';
+      document.getElementById('wWind').textContent     = wLatest.wind_speed_ms !== null ? wLatest.wind_speed_ms.toFixed(1) + ' m/s': '-- m/s';
+    }
+
+    liveApiOk = true;
+    setApiStatus('ok', 'NVVN Backend ✓');
+    document.getElementById('apiErrBanner').style.display = 'none';
+    updateLiveCard();
+  } catch (e) {
+    liveApiOk = false;
+    setApiStatus('err', 'Backend unreachable');
+    document.getElementById('apiErrBanner').style.display = 'block';
+    // Fallback: simulate a realistic CG demand value
+    const now = new Date();
+    const h = now.getHours() + now.getMinutes() / 60;
+    liveDemandMW = Math.round(4800 + 2200 * Math.sin(Math.PI * (h - 2) / 22) + (Math.random() - 0.5) * 150);
+    liveISGS     = Math.round(liveDemandMW * 0.62);
+    liveImport   = Math.round(liveDemandMW * 0.18);
+    updateLiveCard();
+  }
+}
+
+function updateLiveCard() {
+  if (liveDemandMW === null) return;
+  const now = new Date();
+  document.getElementById('liveDemand').innerHTML  = liveDemandMW.toLocaleString() + '<span class="mcard-unit">MW</span>';
+  document.getElementById('liveISGS').textContent  = liveISGS   ? liveISGS.toLocaleString()   : '--';
+  document.getElementById('liveImport').textContent= liveImport ? liveImport.toLocaleString() : '--';
+  document.getElementById('liveTime').textContent  = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('liveBadge').textContent = liveApiOk ? 'NVVN API ✓' : 'SIMULATED';
+  document.getElementById('liveBadge').className   = 'mcard-badge ' + (liveApiOk ? 'badge-live' : 'badge-orange');
+
+  const bar = document.getElementById('liveApiBar');
+  if (bar) {
+    bar.innerHTML = liveApiOk
+      ? `<span style="color:#1d4ed8;font-weight:600;">● NVVN Backend (Live)</span>
+         &nbsp;|&nbsp; Demand: <b>${liveDemandMW.toLocaleString()} MW</b>
+         &nbsp;|&nbsp; ISGS: <b>${liveISGS ? liveISGS.toLocaleString() : '--'} MW</b>
+         &nbsp;|&nbsp; Import: <b>${liveImport ? liveImport.toLocaleString() : '--'} MW</b>
+         &nbsp;|&nbsp; <span style="color:#888;font-size:11px;">as of ${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>`
+      : `<span style="color:#e67e22;">⚠ Backend not responding — showing simulated live demand</span>`;
+  }
+}
+
+// Poll live data every 60s
+generateForecast();
+setInterval(fetchLiveDemand, 60000);
+
+// ─────────────── Model / State change handlers ───────────────
+function onModelChange() {
+  currentModel = document.getElementById('modelSelect').value;
+  document.getElementById('chartModelPill').textContent = modelLabel(currentModel);
+  document.getElementById('tableTitle').textContent     = tableLabel(currentModel);
+  document.getElementById('tableModelPill').textContent = tablePillLabel(currentModel);
+}
+
+function onStateChange() {
+  // Only CG is supported in this backend build
+  fetchLiveDemand();
+}
+
+// ─────────────── Generate Forecast — calls NVVN API ───────────────
+async function generateForecast() {
+  const icon = document.getElementById('btnIcon');
+  const txt  = document.getElementById('btnText');
+  const btn  = document.querySelector('.gen-btn');
+  icon.innerHTML = '<span class="refresh-spin">↻</span>';
+  txt.textContent = 'Fetching from API…';
+  btn.disabled = true;
+
+  // Also refresh live data
+  await fetchLiveDemand();
+
+  const model = document.getElementById('modelSelect').value;
+  const date  = document.getElementById('datePicker').value;
+
+  try {
+    let forecastData = [], actualData = [], labels = [], temps = [];
+    let apiPeak = null;
+
+    if (model === '5min') {
+      const resp = await fetch(API_URL + `/api/chhattisgarh/forecast?date=${date}`);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' from /forecast');
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      apiPeak = data.peak_demand_mw;
+      for (const s of (data.slots || [])) {
+        forecastData.push(Math.round(s.predicted_mw));
+        actualData.push(s.actual_mw !== null ? Math.round(s.actual_mw) : null);
+        labels.push(s.datetime ? s.datetime.toString().slice(11, 16) : '');
+        temps.push(s.temperature_c);
+      }
+
+    } else if (model === '1hour') {
+      const resp = await fetch(API_URL + `/api/chhattisgarh/forecast/1hour?date=${date}`);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' from /forecast/1hour');
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      apiPeak = data.peak_demand_mw;
+      for (const s of (data.slots || [])) {
+        forecastData.push(Math.round(s.predicted_mw));
+        actualData.push(s.actual_mw !== null ? Math.round(s.actual_mw) : null);
+        labels.push(s.datetime ? s.datetime.toString().slice(11, 16) : '');
+        temps.push(s.temperature_c);
+      }
+
+    } else if (model === '3hour') {
+      const resp = await fetch(API_URL + `/api/chhattisgarh/forecast/3hour?date=${date}`);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' from /forecast/3hour');
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      apiPeak = data.peak_demand_mw;
+      for (const s of (data.slots || [])) {
+        forecastData.push(Math.round(s.predicted_mw));
+        actualData.push(s.actual_mw !== null ? Math.round(s.actual_mw) : null);
+        labels.push(s.datetime ? s.datetime.toString().slice(11, 16) : '');
+        temps.push(s.temperature_c);
+      }
+
+    } else if (model === '24hour') {
+      const resp = await fetch(API_URL + `/api/chhattisgarh/forecast/24hour?date=${date}&days=30`);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' from /forecast/24hour');
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      apiPeak = data.peak_demand_mw;
+      for (const s of (data.days || [])) {
+        forecastData.push(Math.round(s.predicted_mw));
+        actualData.push(s.actual_mw !== null ? Math.round(s.actual_mw) : null);
+        labels.push(s.date ? s.date.toString().slice(5) : '');  // MM-DD
+        temps.push(s.temperature_c);
+      }
+    }
+
+    if (forecastData.length === 0) throw new Error('Empty response from forecast API');
+
+    buildDashboard({ forecastData, actualData, labels, temps, apiPeak });
+    icon.innerHTML = '✓';
+    txt.textContent = 'Generated';
+    setTimeout(() => { icon.innerHTML = '↻'; txt.textContent = 'Generate Forecast'; btn.disabled = false; }, 2500);
+
+  } catch (e) {
+    console.warn('Forecast API error:', e.message);
+    // Fallback to synthetic so the dashboard doesn't go blank
+    buildDashboard(null);
+    icon.innerHTML = '⚠';
+    txt.textContent = 'API Error – Synthetic Fallback';
+    document.getElementById('apiErrBanner').style.display = 'block';
+    setTimeout(() => { icon.innerHTML = '↻'; txt.textContent = 'Generate Forecast'; btn.disabled = false; }, 3000);
+  }
+}
+
+// ─────────────── Build Dashboard ───────────────
+// realData = { forecastData[], actualData[], labels[], temps[], apiPeak }
+// Pass null to use synthetic fallback
+function buildDashboard(realData = null) {
+  currentModel = document.getElementById('modelSelect').value;
+  const selectedDate = document.getElementById('datePicker').value;
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const isToday = (selectedDate === todayDateStr);
+  const now = new Date();
+  const slots = realData ? realData.forecastData.length : totalSlots(currentModel);
+  const currentSlot = currentSlotForModel(currentModel);
+
+  let forecastData, actualData, labels, temps;
+
+  if (realData) {
+    forecastData = realData.forecastData;
+    actualData   = realData.actualData;
+    labels       = realData.labels;
+    temps        = realData.temps.map(t => t !== null ? t : null);
+    // Inject live API demand into current slot if we have it (only for today & sub-daily models)
+    if (isToday && currentModel !== '24hour' && liveDemandMW && currentSlot < forecastData.length) {
+      actualData[currentSlot] = liveDemandMW;
+    }
+  } else {
+    // ── Synthetic fallback (when API is unavailable) ──
+    forecastData = []; actualData = []; labels = []; temps = [];
+    const base = 4800;
+    for (let s = 0; s < slots; s++) {
+      let h;
+      if (currentModel === '5min')       h = s / 12;
+      else if (currentModel === '1hour') h = s;
+      else if (currentModel === '3hour') h = s * 3;
+      else h = 12;
+
+      let load = base;
+      if (h >= 6 && h < 9)    load += 1800 * (h - 6) / 3;
+      else if (h >= 9 && h < 18)  load += 1800 + 600 * Math.sin(Math.PI * (h - 9) / 9);
+      else if (h >= 18 && h < 22) load += 2800 + 1200 * Math.sin(Math.PI * (h - 18) / 4);
+      else if (h >= 22)  load += 2800 * (24 - h) / 2;
+      else load += 400 * Math.sin(Math.PI * h / 6);
+
+      if (currentModel === '24hour') {
+        const dayVar = [0.92, 0.94, 0.96, 0.99, 1.0, 1.02, 0.98];
+        load *= (dayVar[s % 7] || 1.0);
+      }
+      load += (Math.random() - 0.5) * 120;
+      forecastData.push(Math.round(load));
+      labels.push(slotToTime(s, currentModel));
+      actualData.push(s <= currentSlot ? Math.round(load + (Math.random() - 0.5) * 200) : null);
+      temps.push(28 + 10 * Math.sin(Math.PI * (h - 6) / 18) + (Math.random() - 0.5) * 1.5);
+    }
+    if (isToday && currentModel !== '24hour' && liveDemandMW && currentSlot < forecastData.length) {
+      actualData[currentSlot] = liveDemandMW;
+    }
+  }
+
+  // ── Stats ──
+  const peakIdx   = forecastData.indexOf(Math.max(...forecastData));
+  const peakMW    = forecastData[peakIdx];
+  const cForecast = forecastData[Math.min(currentSlot, forecastData.length - 1)];
+  const cActual   = actualData[Math.min(currentSlot, actualData.length - 1)];
+  const cError    = cActual ? Math.abs((cForecast - cActual) / cActual * 100).toFixed(2) : '--';
+
+  let mapeSum = 0, cnt = 0;
+  for (let s = 0; s <= Math.min(currentSlot, forecastData.length - 1); s++) {
+    if (actualData[s]) { mapeSum += Math.abs((forecastData[s] - actualData[s]) / actualData[s]); cnt++; }
+  }
+  const avgMape = cnt ? (mapeSum / cnt * 100).toFixed(2) : '--';
+
+  // Peak temp from API data (or estimate)
+  const validTemps = temps.filter(t => t !== null && !isNaN(t));
+  const peakTemp   = validTemps.length > 0 ? Math.max(...validTemps).toFixed(1) : '--';
+  const curTemp    = validTemps.length > currentSlot && temps[currentSlot] !== null
+    ? temps[Math.min(currentSlot, temps.length - 1)].toFixed(1) : '--';
+
+  // ── Metric cards ──
+  document.getElementById('forecastTime').textContent    = slotToTime(Math.min(currentSlot, forecastData.length - 1), currentModel);
+  document.getElementById('forecastTemp').textContent    = curTemp !== '--' ? curTemp + '°C' : '--°C';
+  document.getElementById('forecastDemand').innerHTML    = cForecast.toLocaleString() + '<span class="mcard-unit">MW</span>';
+  document.getElementById('peakTime').textContent        = slotToTime(peakIdx, currentModel);
+  document.getElementById('peakTemp').textContent        = peakTemp !== '--' ? peakTemp + '°C' : '--°C';
+  document.getElementById('peakDemand').innerHTML        = peakMW.toLocaleString() + '<span class="mcard-unit">MW</span>';
+  document.getElementById('currentPeriod').textContent   = slotToTime(Math.min(currentSlot, forecastData.length - 1), currentModel);
+  document.getElementById('currentMape').innerHTML       = cError + '<span class="mcard-unit" style="font-size:14px;">%</span>';
+  document.getElementById('lastUpdated').textContent     = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+
+  const mapeNum   = parseFloat(avgMape);
+  const mapeColor = mapeNum < 5 ? '#27ae60' : mapeNum < 10 ? '#e67e22' : '#c0392b';
+  document.getElementById('avgMape').innerHTML = avgMape + '<span class="mcard-unit" style="font-size:14px;">%</span>';
+  document.getElementById('avgMape').style.color = mapeColor;
+
+  document.getElementById('chartModelPill').textContent = modelLabel(currentModel);
+  document.getElementById('tableTitle').textContent     = tableLabel(currentModel);
+  document.getElementById('tableModelPill').textContent = tablePillLabel(currentModel);
+
+  // ── Live point overlay ──
+  const livePointData = Array(forecastData.length).fill(null);
+  const liveSlot = Math.min(currentSlot, forecastData.length - 1);
+  if (liveDemandMW && liveSlot < forecastData.length) livePointData[liveSlot] = liveDemandMW;
+
+  // ── Main chart ──
+  if (mainChartInst) mainChartInst.destroy();
+  mainChartInst = new Chart(document.getElementById('mainChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Actual Demand (MW)',   data: actualData,    borderColor: '#17a589', backgroundColor: 'rgba(23,165,137,0.12)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.4, spanGaps: false },
+        { label: 'Forecast Demand (MW)', data: forecastData,  borderColor: '#2980b9', backgroundColor: 'rgba(41,128,185,0.07)', borderWidth: 2, borderDash: [6, 3], pointRadius: 0, fill: true, tension: 0.4 },
+        { label: 'Live API Demand (MW)', data: livePointData, borderColor: '#e74c3c', backgroundColor: '#e74c3c', borderWidth: 0,
+          pointRadius: livePointData.map(v => v ? 10 : 0), pointStyle: 'circle',
+          pointBackgroundColor: '#e74c3c', pointBorderColor: '#fff', pointBorderWidth: 2.5, showLine: false, pointHoverRadius: 13 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.raw !== null ? c.raw.toLocaleString() + ' MW' : 'N/A') } }
+      },
+      scales: {
+        x: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 10 }, color: '#999', autoSkip: true, maxTicksLimit: 13, maxRotation: 0 } },
+        y: { grid: { color: '#f0f2f7' }, ticks: { font: { size: 10 }, color: '#999', callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+
+  // ── Temperature chart ──
+  const tempDisplayData = temps.map(t => (t !== null && !isNaN(t)) ? Math.round(t * 10) / 10 : null);
+  if (tempChartInst) tempChartInst.destroy();
+  tempChartInst = new Chart(document.getElementById('tempChart').getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Temperature (°C)', data: tempDisplayData, borderColor: '#e67e22', backgroundColor: 'rgba(230,126,34,0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.4, spanGaps: true }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw !== null ? c.raw + '°C' : 'N/A' } } },
+      scales: { x: { display: false }, y: { grid: { color: '#f8f9fb' }, ticks: { font: { size: 9 }, color: '#aaa' } } }
+    }
+  });
+
+  // ── Slot table ──
+  const start = Math.max(0, Math.min(currentSlot, forecastData.length - 1) - 5);
+  const end   = Math.min(forecastData.length - 1, start + 20);
+  let rows = '';
+  for (let s = start; s <= end; s++) {
+    const f = forecastData[s], a = actualData[s];
+    const err  = a !== null ? Math.abs((f - a) / a * 100).toFixed(1) : '--';
+    const eNum = parseFloat(err);
+    const chip = a !== null
+      ? `<span class="mape-chip ${eNum < 3 ? 'mape-good' : eNum < 7 ? 'mape-mid' : 'mape-bad'}">${err}%</span>`
+      : '<span style="color:#bbb;">Pending</span>';
+    const isCur  = isToday && currentModel !== '24hour' && (s === currentSlot);
+    const isLive = isCur && liveDemandMW;
+    rows += `<tr style="${isCur ? 'background:#f0f7ff;font-weight:500;' : ''}">
+      <td>${s + 1}</td>
+      <td>${labels[s]}</td>
+      <td>${f.toLocaleString()}</td>
+      <td>${a !== null ? (isLive ? '<span style="color:#e74c3c;font-weight:600;">' + a.toLocaleString() + ' ●</span>' : a.toLocaleString()) : '--'}</td>
+      <td>${chip}</td>
+      <td>${isCur
+        ? '<span style="color:#2563eb;font-size:11px;">● Current</span>'
+        : s < Math.min(currentSlot, forecastData.length - 1)
+          ? '<span style="color:#aaa;font-size:11px;">Done</span>'
+          : '<span style="color:#ddd;font-size:11px;">Upcoming</span>'}</td>
+    </tr>`;
+  }
+  document.getElementById('slotTable').innerHTML = rows;
+
+  updateLiveCard();
+}
+</script>
+</body>
+</html>
